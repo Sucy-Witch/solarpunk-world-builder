@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌿 Architecture & Engineering in EVERYBODY's Hands</title>
+<!--
+  ============================================================
+  SOLARPUNK CITY BUILDER v2
+  "Architecture & Engineering in EVERYBODY's Hands"
+  ============================================================
+  KEY CHANGES from v1:
+  - Objects are FREE-FLOATING in 3D space (X, Y, Z all moveable)
+  - No grid-snap placement — drag to position anywhere
+  - Three transform modes: Move XZ (ground plane), Move Y (height),
+    and Free 3D drag
+  - Visual style matches project board: biophilic, warm, illustrated
+  - Categories match Figma asset list:
+      Plants & Trees / Weather / Outdoor Environment
+      Flat Buildings / F30 City Buildings / 3D Animated Components
+      Energy / Water / Community
+  - Objects rendered as recognizable geometric shapes, not plain boxes
+  - Symbiotic links still pulse between nearby compatible objects
+  ============================================================
+-->
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #1a2810;
+  color: #d8eebc;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── TOP BAR ─── */
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  height: 46px;
+  background: linear-gradient(90deg, #0e1a08, #141f0c);
+  border-bottom: 1px solid #2a4820;
+  flex-shrink: 0;
+  z-index: 10;
+}
+#topbar h1 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #8adc5a;
+  white-space: nowrap;
+}
+.top-pill {
+  font-size: 10px;
+  background: #162410;
+  border: 1px solid #2a4820;
+  border-radius: 12px;
+  padding: 3px 10px;
+  color: #5a9a40;
+  white-space: nowrap;
+}
+.top-pill b { color: #a0e070; }
+#eco-badge {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0e1a08;
+  background: linear-gradient(135deg, #8adc5a, #50c030);
+  border-radius: 20px;
+  padding: 4px 14px;
+}
+
+/* ─── MAIN LAYOUT ─── */
+#main { display: flex; flex: 1; overflow: hidden; }
+
+/* ─── LEFT SIDEBAR ─── */
+#sidebar {
+  width: 200px;
+  min-width: 200px;
+  background: #0e1a08;
+  border-right: 1px solid #243a18;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+#sidebar::-webkit-scrollbar { width: 4px; }
+#sidebar::-webkit-scrollbar-thumb { background: #2a4820; border-radius: 2px; }
+
+.cat-group { border-bottom: 1px solid #1e3014; }
+.cat-head {
+  padding: 7px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #3a6828;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+}
+.cat-head:hover { color: #6ab040; }
+.cat-emoji { margin-right: 5px; font-size: 12px; }
+.cat-items { padding: 3px 6px 6px; display: flex; flex-direction: column; gap: 2px; }
+.cat-items.hidden { display: none; }
+
+.obj-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  font-size: 11px;
+  color: #7aaa58;
+  transition: all 0.12s;
+  user-select: none;
+}
+.obj-btn:hover { background: #14200e; border-color: #2a4820; color: #b0e080; }
+.obj-btn.active { background: #1a3010; border-color: #50a030; color: #a0e070; }
+.obj-swatch {
+  width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0;
+  box-shadow: 0 0 4px rgba(0,0,0,0.4);
+}
+.obj-sub { font-size: 9px; color: #3a5a28; margin-top: 1px; }
+
+/* ─── VIEWPORT ─── */
+#viewport {
+  flex: 1;
+  position: relative;
+  background: #121e0a;
+  overflow: hidden;
+  cursor: crosshair;
+}
+canvas { display: block; width: 100%; height: 100%; }
+
+/* HUD overlays */
+#mode-badge {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10,18,6,0.88);
+  border: 1px solid #2a4820;
+  color: #a0e070;
+  font-size: 11px;
+  padding: 5px 16px;
+  border-radius: 20px;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+#tools-bar {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  background: rgba(10,18,6,0.92);
+  border: 1px solid #2a4820;
+  border-radius: 24px;
+  padding: 6px 10px;
+}
+.tbtn {
+  font-size: 11px;
+  padding: 5px 13px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: #5a8a40;
+  background: transparent;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.tbtn:hover { color: #a0e070; border-color: #3a6020; }
+.tbtn.on { background: #1a3a10; border-color: #50a030; color: #a0e070; }
+
+/* axis controls when object selected */
+#axis-bar {
+  position: absolute;
+  bottom: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  background: rgba(10,18,6,0.88);
+  border: 1px solid #2a4820;
+  border-radius: 20px;
+  padding: 5px 10px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+#axis-bar.show { opacity: 1; pointer-events: all; }
+.axbtn {
+  font-size: 10px;
+  padding: 4px 11px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: transparent;
+  transition: all 0.12s;
+}
+.axbtn.xz { color: #e0a040; }
+.axbtn.y  { color: #60c0f0; }
+.axbtn.free { color: #c080f0; }
+.axbtn.on { background: #1a2a10; border-color: currentColor; }
+
+/* view pills */
+#view-bar {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+}
+.vpill {
+  font-size: 10px;
+  padding: 4px 11px;
+  border-radius: 12px;
+  border: 1px solid #243a18;
+  background: rgba(10,18,6,0.85);
+  color: #4a7a30;
+  cursor: pointer;
+}
+.vpill.on { color: #a0e070; border-color: #50a030; }
+
+/* ─── RIGHT PANEL ─── */
+#rpanel {
+  width: 210px;
+  min-width: 210px;
+  background: #0e1a08;
+  border-left: 1px solid #243a18;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+#rpanel::-webkit-scrollbar { width: 4px; }
+#rpanel::-webkit-scrollbar-thumb { background: #2a4820; }
+
+.rp-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #3a6028;
+  margin-bottom: 7px;
+}
+.rp-empty { font-size: 11px; color: #2e4e20; line-height: 1.7; }
+
+/* Position sliders */
+.pos-row { margin-bottom: 8px; }
+.pos-label {
+  font-size: 10px;
+  color: #5a8a40;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+.pos-label b { color: #a0e070; font-weight: 600; }
+input[type=range] {
+  width: 100%;
+  accent-color: #60c040;
+  cursor: pointer;
+}
+
+/* stat rows */
+.st-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  padding: 3px 0;
+  border-bottom: 1px solid #1a2a12;
+  color: #4a7a38;
+}
+.st-val { font-weight: 700; }
+.st-val.pos { color: #80d050; }
+.st-val.neg { color: #e07050; }
+
+/* health bars */
+.hbar-row { margin-bottom: 8px; }
+.hbar-label { font-size: 10px; color: #4a7a38; display: flex; justify-content: space-between; margin-bottom: 3px; }
+.hbar-track { height: 4px; background: #1a2a12; border-radius: 2px; overflow: hidden; }
+.hbar-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+
+/* links */
+.link-row {
+  font-size: 10px;
+  color: #4a7a38;
+  padding: 4px 0;
+  border-bottom: 1px solid #1a2a12;
+  display: flex;
+  gap: 5px;
+  line-height: 1.5;
+}
+.link-dot { width: 5px; height: 5px; border-radius: 50%; background: #60c040; margin-top: 4px; flex-shrink: 0; }
+
+.del-btn {
+  width: 100%;
+  background: #1e0e0e;
+  border: 1px solid #4a2020;
+  color: #d07060;
+  font-size: 10px;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.del-btn:hover { background: #2e1414; }
+
+.obj-name { font-size: 13px; font-weight: 700; color: #c0e898; margin-bottom: 5px; }
+.obj-desc { font-size: 10px; color: #5a8a48; line-height: 1.6; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <h1>🌿 Architecture & Engineering in EVERYBODY's Hands</h1>
+  <div class="top-pill">⚡ <b id="se">0</b>kW</div>
+  <div class="top-pill">💧 <b id="sw">0</b>%</div>
+  <div class="top-pill">🌾 <b id="sf">0</b>%</div>
+  <div class="top-pill">♻️ <b id="sr">0</b>%</div>
+  <div class="top-pill">😊 <b id="swb">0</b>%</div>
+  <div id="eco-badge">Eco Score: <span id="esc">0</span></div>
+</div>
+
+<div id="main">
+
+<!-- LEFT SIDEBAR — Figma asset categories from your board -->
+<div id="sidebar">
+
+  <!-- PLANTS & TREES -->
+  <div class="cat-group">
+    <div class="cat-head" onclick="toggleCat(this)">
+      <span><span class="cat-emoji">🌳</span>Plants & Trees</span><span>▾</span>
+    </div>
+    <div class="cat-items">
+      <div class="obj-btn" data-id="tree_canopy" onclick="pick('tree_canopy')">
+        <div class="obj-swatch" style="background:#20a040"></div>
+        <div><div>Canopy Tree</div><div class="obj-sub">carbon + shade</div></div>
+      </div>
+      <div class="obj-btn" data-id="palm" onclick="pick('palm')">
+        <div class="obj-swatch" style="background:#40b830"></div>
+        <div><div>Palm / Tall Tree</div><div class="obj-sub">vertical green</div></div>
+      </div>
+      <div class="obj-btn" data-id="vertical_green" onclick="pick('vertical_green')">
+        <div class="obj-swatch" style="background:#60d040"></div>
+        <div><div>Living Wall</div><div class="obj-sub">facade greening</div></div>
+      </div>
+      <div class="obj-btn" data-id="shrub_bed" onclick="pick('shrub_bed')">
+        <div class="obj-swatch" style="background:#50c050"></div>
+        <div><div>Shrub Bed</div><div class="obj-sub">ground cover</div></div>
+      </div>
+      <div class="obj-btn" data-id="edible_hedge" onclick="pick('edible_hedge')">
+        <div class="obj-swatch" style="background:#80d040"></div>
+        <div><div>Edible Hedge</div><div class="obj-sub">food + privacy</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WEATHER & ENVIRONMENT -->
+  <div class="cat-group">
+    <div class="cat-head" onclick="toggleCat(this)">
+      <span><span class="cat-emoji">🌤</span>Weather & Sky</span><span>▾</span>
+    </div>
+    <div class="cat-items">
+      <div class="obj-btn" data-id="sun_dome" onclick="pick('sun_dome')">
+        <div class="obj-swatch" style="background:#f0d020"></div>
+        <div><div>Sun / Skylight Dome</div><div class="obj-sub">daylighting</div></div>
+      </div>
+      <div class="obj-btn" data-id="rain_catcher" onclick="pick('rain_catcher')">
+        <div class="obj-swatch" style="background:#4090e0"></div>
+        <div><div>Rain Catcher</div><div class="obj-sub">water harvest</div></div>
+      </div>
+      <div class="obj-btn" data-id="wind_scoop" onclick="pick('wind_scoop')">
+        <div class="obj-swatch" style="background:#80c0f0"></div>
+        <div><div>Wind Scoop</div><div class="obj-sub">passive cooling</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OUTDOOR / ENVIRONMENT ILLUSTRATIONS -->
+  <div class="cat-group">
+    <div class="cat-head" onclick="toggleCat(this)">
+      <span><span class="cat-emoji">🏞</span>Outdoor Environment</span><span>▾</span>
+    </div>
+    <div class="cat-items">
+      <div class="obj-btn" data-id="wetland" onclick="pick('wetland')">
+        <div class="obj-swatch" style="background:#30a080"></div>
+        <div><div>Living Wetland</div><div class="obj-sub">filter + habitat</div></div>
+      </div>
+      <div class="obj-btn" data-id="forest_patch" onclick="pick('forest_patch')">
+        <div class="obj-swatch" style="background:#208050"></div>
+        <div><div>Forest Pocket</div><div class="obj-sub">biodiversity</div></div>
+      </div>
+      <div class="obj-btn" data-id="bike_path" onclick="pick('bike_path')">
+        <div class="obj-swatch" style="background:#c09030"></div>
+        <div><div>Bike + Walk Path</div><div class="obj-sub">human-scale</div></div>
+      </div>
+      <div class="obj-btn" data-id="plaza" onclick="pick('plaza')">
+        <div class="obj-swatch" style="background:#d0a840"></div>
+        <div><div>Community Plaza</div><div class="obj-sub">social heart</div></div>
+      </div>
+      <div class="obj-btn" data-id="aquaponics" onclick="pick('aquaponics')">
+        <div class="obj-swatch" style="background:#30b0c0"></div>
+        <div><div>Aquaponics Pond</div><div class="obj-sub">fish + plants loop</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FLAT BUILDINGS -->
+  <div class="cat-group">
+    <div class="cat-head" onclick="toggleCat(this)">
+      <span><span class="cat-emoji">🏠</span>Flat Buildings</span><span>▾</span>
+    </div>
+    <div class="cat-items">
+      <div class="obj-btn" data-id="house_low" onclick="pick('house_low')">
+        <div class="obj-swatch" style="background:#a09060"></div>
+        <div><div>Low-Rise Home</div><div class="obj-sub">1–2 floors</div></div>
+      </div>
+      <div class="obj-btn" data-id="workshop_bld" onclick="pick('workshop_bld')">
+        <div class="obj-swatch" style="background:#c07050"></div>
+        <div><div>Ecopunk Workshop</div><div class="obj-sub">repair + skills</div></div>
+      </div>
+      <div class="obj-btn" data-id="clinic" onclick="pick('clinic')">
+        <div class="obj-swatch" style="background:#e09090"></div>
+        <div><div>Health Clinic</div><div class="obj-sub">wellbeing node</div></div>
+      </div>
+      <div class="obj-btn" data-id="school" onclick="pick('school')">
+        <div class="obj-swatch" style="background:#f0b040"></div>
+        <div><div>Learning Hub</div><div class="obj-sub">community school</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- F30 CITY BUILDINGS -->
+  <div class="cat-group">
+    <div class="cat-head" onclick="toggleCat(this)">
+      <span><span class="cat-emoji">🏙</span>F30 City Buildings</span><span>▾</span>
+    </div>
+    <div class="cat-items">
+      <div class="obj-btn" data-id="tower_green" onclick="pick('tower_green')">
+        <div class="obj-swatch" style="background:#60a870"></div>
+        <div><div>Green Tower</div><div class="obj-sub">vertical forest</div></div>
+      </div>
+      <div class="obj-btn" data-id="modular_block" onclick="pick('modular_block')">
+        <div class="obj-swatch" style="background:#7090b0"></div>
+        <div><div>Modular Block</div><div class="obj-sub">adaptable units</div></div>
+      </div>
+      <div class="obj-btn" data-id="honeycomb" onclick="pick('honeycomb')">
+        <div class="obj-swatch" style="background:#c09040"></div>
+        <div><div>Honeycomb Court</div><div class="obj-sub">courtyard cluster</div></div>
+      </div>
+      <div class="obj-btn" data-id="biome_dome" onclick="pick('biome_dome')">
+        <div class="obj-swatch" style="background:#50c080"></div>
+        <div><div>Biome Dome</div><div class="obj-sub">indoor ecosystem</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3D ANIMATED / ENERGY COMPONENTS -->
+  <div class="cat-group">
+    <div class="cat-head" onclick="toggleCat(this)">
+      <span><span class="cat-emoji">⚡</span>Energy Systems</span><span>▾</span>
+    </div>
+    <div class="cat-items">
+      <div class="obj-btn" data-id="solar_array" onclick="pick('solar_array')">
+        <div class="obj-swatch" style="background:#f0c020"></div>
+        <div><div>Solar Array</div><div class="obj-sub">animated panels</div></div>
+      </div>
+      <div class="obj-btn" data-id="wind_turbine" onclick="pick('wind_turbine')">
+        <div class="obj-swatch" style="background:#90d0f0"></div>
+        <div><div>Wind Turbine</div><div class="obj-sub">spinning blades</div></div>
+      </div>
+      <div class="obj-btn" data-id="biodigester" onclick="pick('biodigester')">
+        <div class="obj-swatch" style="background:#b0a030"></div>
+        <div><div>Biodigester</div><div class="obj-sub">scraps→methane</div></div>
+      </div>
+      <div class="obj-btn" data-id="battery_bank" onclick="pick('battery_bank')">
+        <div class="obj-swatch" style="background:#50c0a0"></div>
+        <div><div>Battery Bank</div><div class="obj-sub">stores surplus</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRANSPORT -->
+  <div class="cat-group">
+    <div class="cat-head" onclick="toggleCat(this)">
+      <span><span class="cat-emoji">🚡</span>Transport</span><span>▾</span>
+    </div>
+    <div class="cat-items">
+      <div class="obj-btn" data-id="gondola" onclick="pick('gondola')">
+        <div class="obj-swatch" style="background:#a060d0"></div>
+        <div><div>Sky Gondola</div><div class="obj-sub">electric + scenic</div></div>
+      </div>
+      <div class="obj-btn" data-id="light_rail" onclick="pick('light_rail')">
+        <div class="obj-swatch" style="background:#5080d0"></div>
+        <div><div>Light Rail Pod</div><div class="obj-sub">joyful transit</div></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /sidebar -->
+
+<!-- VIEWPORT -->
+<div id="viewport">
+  <canvas id="c"></canvas>
+  <div id="mode-badge">✦ Place mode — click sidebar object, then click in space</div>
+  <div id="view-bar">
+    <div class="vpill on" onclick="setView('orbit',this)">3D Orbit</div>
+    <div class="vpill" onclick="setView('top',this)">Top</div>
+    <div class="vpill" onclick="setView('iso',this)">Isometric</div>
+  </div>
+  <div id="axis-bar">
+    <div class="axbtn xz on" id="ax-xz" onclick="setAxis('xz')">↔ XZ Ground</div>
+    <div class="axbtn y"  id="ax-y"  onclick="setAxis('y')">↕ Y Height</div>
+    <div class="axbtn free" id="ax-free" onclick="setAxis('free')">✦ Free 3D</div>
+  </div>
+  <div id="tools-bar">
+    <button class="tbtn on" id="tb-place"  onclick="setTool('place')">✦ Place</button>
+    <button class="tbtn"    id="tb-select" onclick="setTool('select')">⊹ Select</button>
+    <button class="tbtn"    id="tb-delete" onclick="setTool('delete')">✕ Delete</button>
+    <button class="tbtn"    onclick="clearScene()">↺ Clear</button>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div id="rpanel">
+  <div id="rp-obj">
+    <div class="rp-title">Object</div>
+    <div class="rp-empty">← Pick an object from the sidebar.<br><br>Click anywhere in the 3D space to place it — not just on the ground. Use Y Height mode to float objects at any level.</div>
+  </div>
+
+  <div>
+    <div class="rp-title">City Health</div>
+    <div class="hbar-row"><div class="hbar-label"><span>⚡ Energy</span><span id="h-e">0%</span></div><div class="hbar-track"><div class="hbar-fill" id="hf-e" style="width:0%;background:#f0c020"></div></div></div>
+    <div class="hbar-row"><div class="hbar-label"><span>💧 Water</span><span id="h-w">0%</span></div><div class="hbar-track"><div class="hbar-fill" id="hf-w" style="width:0%;background:#4090d0"></div></div></div>
+    <div class="hbar-row"><div class="hbar-label"><span>🌾 Food</span><span id="h-f">0%</span></div><div class="hbar-track"><div class="hbar-fill" id="hf-f" style="width:0%;background:#60c040"></div></div></div>
+    <div class="hbar-row"><div class="hbar-label"><span>♻️ Recycle</span><span id="h-r">0%</span></div><div class="hbar-track"><div class="hbar-fill" id="hf-r" style="width:0%;background:#b0a030"></div></div></div>
+    <div class="hbar-row"><div class="hbar-label"><span>😊 Wellbeing</span><span id="h-wb">0%</span></div><div class="hbar-track"><div class="hbar-fill" id="hf-wb" style="width:0%;background:#c060a0"></div></div></div>
+  </div>
+
+  <div>
+    <div class="rp-title">Symbiotic Links</div>
+    <div id="links-out" style="font-size:10px;color:#2e4e20">Place objects near each other to unlock ecosystem connections.</div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════
+// OBJECT REGISTRY
+// Each entry defines the 3D appearance and ecosystem role.
+// shape options: box, cylinder, cone, sphere, flat, torus
+// ═══════════════════════════════════════════════════════════
+const OBJ = {
+  // ── PLANTS & TREES ──
+  tree_canopy: {
+    label:'Canopy Tree', color:0x20a040, shape:'treebig', h:3,
+    desc:'Large shade tree. Cools the microclimate, sequesters carbon, habitat for birds.',
+    stats:{e:2,w:5,f:0,r:5,wb:18},
+    synergy:['nature','carbon_sink'],
+    links:[['water_source','Root system filters groundwater'],['community','Shade for gathering spaces']]
+  },
+  palm: {
+    label:'Palm / Tall Tree', color:0x40b830, shape:'treepalm', h:5,
+    desc:'Tall vertical greenery. Marks pathways, provides visual rhythm in streetscapes.',
+    stats:{e:1,w:3,f:0,r:2,wb:10},
+    synergy:['nature'],
+    links:[['pedestrian','Lines walkways and plazas']]
+  },
+  vertical_green: {
+    label:'Living Wall', color:0x60d040, shape:'flat_v', h:3,
+    desc:'Plants growing on building facades. Insulates, cleans air, grows herbs.',
+    stats:{e:3,w:-3,f:5,r:0,wb:12},
+    synergy:['nature','food_producer'],
+    links:[['water_source','Drip-fed by rainwater'],['energy_producer','Reduces cooling load']]
+  },
+  shrub_bed: {
+    label:'Shrub Bed', color:0x50c050, shape:'flat', h:0.4,
+    desc:'Low planting beds between paths. Slows stormwater, feeds pollinators.',
+    stats:{e:0,w:4,f:2,r:3,wb:7},
+    synergy:['nature'],
+    links:[['water_source','Absorbs rain runoff']]
+  },
+  edible_hedge: {
+    label:'Edible Hedge', color:0x80d040, shape:'box', h:1.5,
+    desc:'Fruit-bearing hedgerows along boundaries. Food + privacy + wildlife corridor.',
+    stats:{e:0,w:2,f:8,r:3,wb:10},
+    synergy:['nature','food_producer'],
+    links:[['organic_waste','Fallen fruit to compost'],['community','Foraging for residents']]
+  },
+
+  // ── WEATHER & SKY ──
+  sun_dome: {
+    label:'Skylight Dome', color:0xf0d020, shape:'sphere', h:2,
+    desc:'Geodesic glass dome. Channels daylight into communal spaces below. Passive solar gain.',
+    stats:{e:12,w:0,f:5,r:0,wb:15},
+    synergy:['energy_producer','grow_light'],
+    links:[['food_producer','Daylights indoor farms'],['community','Light-filled gathering space']]
+  },
+  rain_catcher: {
+    label:'Rain Catcher', color:0x4090e0, shape:'flat', h:0.3,
+    desc:'Roof-mounted collector funnel. Harvests rainwater for gardens and grey water systems.',
+    stats:{e:0,w:28,f:0,r:8,wb:0},
+    synergy:['water_source'],
+    links:[['food_producer','Irrigates vertical farms'],['water_recycler','Feeds greywater loop']]
+  },
+  wind_scoop: {
+    label:'Wind Scoop', color:0x80c0f0, shape:'cone', h:2.5,
+    desc:'Traditional wind tower reinvented. Catches prevailing breeze, cools interior passively.',
+    stats:{e:8,w:0,f:0,r:0,wb:10},
+    synergy:['energy_producer'],
+    links:[['community','Cools public spaces naturally']]
+  },
+
+  // ── OUTDOOR ENVIRONMENT ──
+  wetland: {
+    label:'Living Wetland', color:0x30a080, shape:'flat', h:0.3,
+    desc:'Constructed wetland naturally filters wastewater. Doubles as biodiversity habitat.',
+    stats:{e:0,w:20,f:0,r:20,wb:15},
+    synergy:['water_recycler','nature'],
+    links:[['waste_processor','Receives treated greywater'],['community','Green corridor for wellbeing']]
+  },
+  forest_patch: {
+    label:'Forest Pocket', color:0x208050, shape:'treeclump', h:3.5,
+    desc:'Dense pocket of native trees. Urban lung, cooling island, biodiversity anchor.',
+    stats:{e:3,w:8,f:0,r:6,wb:22},
+    synergy:['nature','carbon_sink'],
+    links:[['water_recycler','Tree roots filter groundwater'],['community','Mental health green space']]
+  },
+  bike_path: {
+    label:'Bike + Walk Path', color:0xc09030, shape:'flat_long', h:0.15,
+    desc:'Green-lined pedestrian and cycling route. Human-scale, joyful, edible plants at verge.',
+    stats:{e:5,w:0,f:3,r:5,wb:20},
+    synergy:['pedestrian','transport'],
+    links:[['community','Connects housing to plazas'],['nature','Lined with edible plants']]
+  },
+  plaza: {
+    label:'Community Plaza', color:0xd0a840, shape:'flat', h:0.2,
+    desc:'Central gathering space. Markets, events, spontaneous social life. The city\'s heart.',
+    stats:{e:0,w:0,f:5,r:0,wb:28},
+    synergy:['community'],
+    links:[['transport','Hub for gondola + bike routes'],['food_producer','Weekly produce markets']]
+  },
+  aquaponics: {
+    label:'Aquaponics Pond', color:0x30b0c0, shape:'flat', h:0.8,
+    desc:'Fish and plants in a closed nutrient loop. Zero waste: fish feed plants, plants clean water.',
+    stats:{e:-5,w:10,f:22,r:14,wb:8},
+    synergy:['food_producer','water_recycler'],
+    links:[['water_source','Recirculates and purifies water'],['organic_waste','Zero waste output']]
+  },
+
+  // ── FLAT BUILDINGS ──
+  house_low: {
+    label:'Low-Rise Home', color:0xa09060, shape:'box', h:2.2,
+    desc:'1–2 floor modular home. Rooftop garden ready. Passive solar design.',
+    stats:{e:-8,w:-6,f:5,r:4,wb:12},
+    synergy:['community'],
+    links:[['energy_producer','Roof solar panels'],['food_producer','Rooftop kitchen garden'],['water_source','Rainwater integration']]
+  },
+  workshop_bld: {
+    label:'Ecopunk Workshop', color:0xc07050, shape:'box', h:2.8,
+    desc:'Community repair café + makerspace. Teaches ecopunk skills, reduces consumption.',
+    stats:{e:-5,w:0,f:0,r:22,wb:18},
+    synergy:['community','waste_processor'],
+    links:[['community','Hub for skill sharing'],['organic_waste','Repair reduces landfill']]
+  },
+  clinic: {
+    label:'Health Clinic', color:0xe09090, shape:'box', h:2.5,
+    desc:'Preventative and mental health services. Nature-integrated therapy gardens on site.',
+    stats:{e:-5,w:-2,f:0,r:0,wb:22},
+    synergy:['community'],
+    links:[['nature','Garden therapy space'],['food_producer','Nutrition education']]
+  },
+  school: {
+    label:'Community Learning Hub', color:0xf0b040, shape:'box', h:3,
+    desc:'Central learning structure with regular workshops. Ecopunk skills, architecture, ecology.',
+    stats:{e:-8,w:-3,f:0,r:5,wb:25},
+    synergy:['community'],
+    links:[['community','Skills for self-sufficiency'],['food_producer','Food growing curriculum']]
+  },
+
+  // ── F30 CITY BUILDINGS ──
+  tower_green: {
+    label:'Green Tower', color:0x60a870, shape:'tower', h:8,
+    desc:'High-density residential with vertical forest on every balcony. Bosco Verticale style.',
+    stats:{e:-15,w:-10,f:10,r:5,wb:15},
+    synergy:['community','nature'],
+    links:[['energy_producer','Integrated solar skin'],['food_producer','Balcony food gardens'],['nature','Vertical biodiversity corridor']]
+  },
+  modular_block: {
+    label:'Modular Block', color:0x7090b0, shape:'box', h:4,
+    desc:'Adaptable living units. Reconfigurable floor plans. Designed around human needs, not the machine.',
+    stats:{e:-12,w:-8,f:4,r:6,wb:14},
+    synergy:['community'],
+    links:[['energy_producer','Shared rooftop solar'],['water_source','Centralised rainwater'],['food_producer','Rooftop growing']]
+  },
+  honeycomb: {
+    label:'Honeycomb Courtyard', color:0xc09040, shape:'honeycomb', h:3.5,
+    desc:'Hexagonal courtyard cluster from your sketches. Maximises shared outdoor space per unit.',
+    stats:{e:-10,w:-6,f:6,r:5,wb:20},
+    synergy:['community','nature'],
+    links:[['community','Central courtyard as social hub'],['food_producer','Courtyard food gardens']]
+  },
+  biome_dome: {
+    label:'Biome Dome', color:0x50c080, shape:'sphere', h:5,
+    desc:'Indoor ecosystem enclosed in geodesic structure. Tropical food, wetland, community space.',
+    stats:{e:-8,w:-5,f:18,r:10,wb:25},
+    synergy:['community','food_producer','nature'],
+    links:[['energy_producer','Passive solar heating'],['water_recycler','Closed water loop inside'],['community','Iconic community landmark']]
+  },
+
+  // ── ENERGY SYSTEMS ──
+  solar_array: {
+    label:'Solar Array', color:0xf0c020, shape:'flat', h:0.3,
+    desc:'Photovoltaic panels. Powers vertical farms, gondolas, battery banks. Day + stored night energy.',
+    stats:{e:32,w:0,f:0,r:0,wb:2},
+    synergy:['energy_producer'],
+    links:[['energy_storage','Charges battery bank'],['grow_light','Powers vertical farm LEDs'],['transport_elec','Powers gondola system']]
+  },
+  wind_turbine: {
+    label:'Wind Turbine', color:0x90d0f0, shape:'turbine', h:6,
+    desc:'Vertical-axis wind turbine. Works with battery banks to smooth supply. Silent, aesthetic.',
+    stats:{e:26,w:0,f:0,r:0,wb:3},
+    synergy:['energy_producer'],
+    links:[['energy_storage','Stores wind surplus']]
+  },
+  biodigester: {
+    label:'Biodigester', color:0xb0a030, shape:'cylinder', h:1.8,
+    desc:'Converts organic scraps + human waste into methane gas + rich fertiliser. Closes waste loop.',
+    stats:{e:16,w:4,f:4,r:32,wb:0},
+    synergy:['energy_producer','waste_processor'],
+    links:[['organic_waste','Receives kitchen scraps + compost'],['food_producer','Outputs fertiliser to farms']]
+  },
+  battery_bank: {
+    label:'Battery Bank', color:0x50c0a0, shape:'box', h:1,
+    desc:'Stores surplus solar + wind energy. Ensures 24h power. Community-owned energy storage.',
+    stats:{e:22,w:0,f:0,r:0,wb:0},
+    synergy:['energy_storage'],
+    links:[['energy_producer','Receives power from solar/wind']]
+  },
+
+  // ── TRANSPORT ──
+  gondola: {
+    label:'Sky Gondola', color:0xa060d0, shape:'gondola', h:5,
+    desc:'Electric aerial gondola between buildings. No roads cut. Scenic, solar-powered, joyful.',
+    stats:{e:-5,w:0,f:0,r:0,wb:18},
+    synergy:['transport','transport_elec'],
+    links:[['energy_producer','Solar powered'],['community','Connects community nodes above ground']]
+  },
+  light_rail: {
+    label:'Light Rail Pod', color:0x5080d0, shape:'box', h:1.2,
+    desc:'Solar-electric rail pod. One main transit system designed to be beautiful not depressing.',
+    stats:{e:-8,w:0,f:0,r:2,wb:15},
+    synergy:['transport','transport_elec'],
+    links:[['energy_producer','Solar powered'],['community','Key social connector']]
+  }
+};
+
+// ═══════════════════════════════════════════════════════════
+// SYMBIOSIS — link two objects if they're within range
+// ═══════════════════════════════════════════════════════════
+const LINK_DIST = 5; // world units
+
+// ═══════════════════════════════════════════════════════════
+// THREE.JS SCENE SETUP
+// ═══════════════════════════════════════════════════════════
+const canvas = document.getElementById('c');
+const vp     = document.getElementById('viewport');
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.setClearColor(0x0e1a08);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x0e1a08, 40, 100);
+
+// Camera
+const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 300);
+let orb = { theta: 0.75, phi: 0.85, r: 30 };
+let orbTarget = new THREE.Vector3(0, 2, 0);
+
+function applyOrbit() {
+  camera.position.set(
+    orbTarget.x + orb.r * Math.sin(orb.phi) * Math.sin(orb.theta),
+    orbTarget.y + orb.r * Math.cos(orb.phi),
+    orbTarget.z + orb.r * Math.sin(orb.phi) * Math.cos(orb.theta)
+  );
+  camera.lookAt(orbTarget);
+}
+applyOrbit();
+
+// Lights
+scene.add(new THREE.AmbientLight(0x203820, 1.4));
+const sun = new THREE.DirectionalLight(0xfff0c0, 2.2);
+sun.position.set(12, 22, 14);
+sun.castShadow = true;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0x204840, 0.5);
+fill.position.set(-10, 6, -12);
+scene.add(fill);
+
+// Reference ground plane (subtle, not a grid)
+const groundGeo = new THREE.PlaneGeometry(60, 60);
+const groundMat = new THREE.MeshLambertMaterial({ color: 0x0d1808, side: THREE.DoubleSide });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+ground.name = '__ground__';
+scene.add(ground);
+
+// Subtle grid
+scene.add(new THREE.GridHelper(60, 60, 0x1a2e12, 0x121e0a));
+
+// Invisible large floor for raycasting depth when placing freely
+const depthPlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(200, 200),
+  new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
+);
+depthPlane.rotation.x = -Math.PI / 2;
+depthPlane.name = '__depth__';
+scene.add(depthPlane);
+
+// ═══════════════════════════════════════════════════════════
+// BUILD SHAPES
+// Creates a THREE.Group representing each object type.
+// Objects are NOT locked to the ground — Y is free.
+// ═══════════════════════════════════════════════════════════
+function buildShape(typeId) {
+  const d = OBJ[typeId];
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: d.color });
+  const matDark = new THREE.MeshLambertMaterial({ color: new THREE.Color(d.color).multiplyScalar(0.6) });
+  const matLight = new THREE.MeshLambertMaterial({ color: new THREE.Color(d.color).multiplyScalar(1.4).getHex() });
+
+  switch (d.shape) {
+    case 'box': {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(1, d.h, 1), mat);
+      m.position.y = d.h / 2;
+      m.castShadow = true;
+      g.add(m);
+      break;
+    }
+    case 'flat': {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(2, d.h, 2), mat);
+      m.position.y = d.h / 2;
+      g.add(m);
+      break;
+    }
+    case 'flat_v': { // vertical flat panel (living wall)
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.2, d.h, 2), mat);
+      m.position.y = d.h / 2;
+      g.add(m);
+      break;
+    }
+    case 'flat_long': {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(3, d.h, 0.6), mat);
+      m.position.y = d.h / 2;
+      g.add(m);
+      break;
+    }
+    case 'cylinder': {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, d.h, 10), mat);
+      m.position.y = d.h / 2;
+      m.castShadow = true;
+      g.add(m);
+      break;
+    }
+    case 'cone': {
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, d.h * 0.4, 8), mat);
+      base.position.y = d.h * 0.2;
+      const top = new THREE.Mesh(new THREE.ConeGeometry(0.6, d.h * 0.7, 4), mat);
+      top.position.y = d.h * 0.75;
+      top.rotation.y = Math.PI / 4;
+      g.add(base, top);
+      break;
+    }
+    case 'sphere': {
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, d.h * 0.3, 8), matDark);
+      stem.position.y = d.h * 0.15;
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(d.h * 0.4, 16, 10), mat);
+      ball.position.y = d.h * 0.3 + d.h * 0.4;
+      ball.castShadow = true;
+      g.add(stem, ball);
+      break;
+    }
+    case 'treebig': { // trunk + round canopy
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, d.h * 0.45, 7), new THREE.MeshLambertMaterial({ color: 0x6b3e1a }));
+      trunk.position.y = d.h * 0.22;
+      const canopy = new THREE.Mesh(new THREE.SphereGeometry(d.h * 0.38, 10, 7), mat);
+      canopy.position.y = d.h * 0.68;
+      canopy.castShadow = true;
+      g.add(trunk, canopy);
+      break;
+    }
+    case 'treepalm': { // trunk + cone top
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, d.h * 0.75, 6), new THREE.MeshLambertMaterial({ color: 0x7a5020 }));
+      trunk.position.y = d.h * 0.375;
+      const top = new THREE.Mesh(new THREE.ConeGeometry(0.8, d.h * 0.3, 6), mat);
+      top.position.y = d.h * 0.85;
+      g.add(trunk, top);
+      break;
+    }
+    case 'treeclump': { // multiple tree spheres
+      for (let i = 0; i < 4; i++) {
+        const ox = (Math.random() - 0.5) * 2;
+        const oz = (Math.random() - 0.5) * 2;
+        const th = d.h * (0.7 + Math.random() * 0.4);
+        const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, th * 0.5, 6), new THREE.MeshLambertMaterial({ color: 0x5a3010 }));
+        tr.position.set(ox, th * 0.25, oz);
+        const cn = new THREE.Mesh(new THREE.SphereGeometry(th * 0.32, 8, 6), new THREE.MeshLambertMaterial({ color: d.color }));
+        cn.position.set(ox, th * 0.65, oz);
+        g.add(tr, cn);
+      }
+      break;
+    }
+    case 'tower': { // tall building with balcony rings
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, d.h, 1.2), mat);
+      body.position.y = d.h / 2;
+      body.castShadow = true;
+      g.add(body);
+      for (let i = 1; i <= 3; i++) {
+        const balc = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.12, 1.8), new THREE.MeshLambertMaterial({ color: 0x40a050 }));
+        balc.position.y = (d.h / 4) * i;
+        g.add(balc);
+      }
+      break;
+    }
+    case 'honeycomb': { // hexagonal cluster
+      const hexGeo = new THREE.CylinderGeometry(0.9, 0.9, d.h, 6);
+      const hex = new THREE.Mesh(hexGeo, mat);
+      hex.position.y = d.h / 2;
+      hex.castShadow = true;
+      const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, d.h + 0.2, 6), new THREE.MeshLambertMaterial({ color: 0x0e1a08 }));
+      inner.position.y = d.h / 2;
+      g.add(hex, inner);
+      break;
+    }
+    case 'turbine': { // pole + nacelle + blades
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.12, d.h, 8), matDark);
+      pole.position.y = d.h / 2;
+      const nac = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.2), matDark);
+      nac.position.y = d.h;
+      g.add(pole, nac);
+      // 3 blades as thin boxes
+      for (let i = 0; i < 3; i++) {
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.08, d.h * 0.45, 0.06), mat);
+        blade.position.y = d.h + d.h * 0.22;
+        blade.rotation.z = (i / 3) * Math.PI * 2;
+        blade.position.x = Math.sin((i / 3) * Math.PI * 2) * d.h * 0.22;
+        blade.position.y = d.h + Math.cos((i / 3) * Math.PI * 2) * d.h * 0.22;
+        g.add(blade);
+      }
+      break;
+    }
+    case 'gondola': { // cable tower + car
+      const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, d.h, 6), matDark);
+      tower.position.y = d.h / 2;
+      const car = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.35, 0.35), mat);
+      car.position.y = d.h * 0.85;
+      g.add(tower, car);
+      break;
+    }
+    default: { // fallback box
+      const m = new THREE.Mesh(new THREE.BoxGeometry(1, d.h || 1, 1), mat);
+      m.position.y = (d.h || 1) / 2;
+      g.add(m);
+    }
+  }
+  return g;
+}
+
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let tool        = 'place';   // 'place' | 'select' | 'delete'
+let pickedType  = null;      // which object type is selected for placing
+let ghost       = null;      // ghost preview mesh
+let placed      = [];        // [{id, type, group, pos:{x,y,z}}]
+let selId       = null;      // selected placed object id
+let links       = [];        // THREE.Line objects for symbiosis
+let nid         = 0;
+let dragAxis    = 'xz';      // 'xz' | 'y' | 'free'
+
+// depth Y for free placement (user-controlled with slider or Y mode)
+let placeY = 0;
+
+// ═══════════════════════════════════════════════════════════
+// ORBIT / PAN / ZOOM CONTROLS
+// ═══════════════════════════════════════════════════════════
+let mouse = new THREE.Vector2();
+let mdown = false, mBtn = -1, mLast = { x: 0, y: 0 };
+let draggingObj = null; // for moving placed objects
+
+canvas.addEventListener('mousedown', e => {
+  mdown = true; mBtn = e.button;
+  mLast = { x: e.clientX, y: e.clientY };
+});
+window.addEventListener('mouseup', e => {
+  mdown = false;
+  draggingObj = null;
+});
+window.addEventListener('mousemove', e => {
+  if (!mdown) return;
+  const dx = e.clientX - mLast.x;
+  const dy = e.clientY - mLast.y;
+  mLast = { x: e.clientX, y: e.clientY };
+
+  // Right drag = pan
+  if (mBtn === 2) {
+    orbTarget.x -= dx * 0.025;
+    orbTarget.z -= dy * 0.025;
+    applyOrbit();
+    return;
+  }
+
+  // Middle drag or left drag in select mode (when no object is being dragged) = orbit
+  if (mBtn === 1 || (mBtn === 0 && tool === 'select' && !draggingObj)) {
+    orb.theta -= dx * 0.012;
+    orb.phi    = Math.max(0.05, Math.min(Math.PI * 0.47, orb.phi - dy * 0.012));
+    applyOrbit();
+    return;
+  }
+
+  // Left drag on selected object in select mode = move it
+  if (mBtn === 0 && tool === 'select' && draggingObj) {
+    const obj = placed.find(o => o.id === draggingObj);
+    if (!obj) return;
+    // project mouse movement into world space based on axis
+    if (dragAxis === 'y') {
+      obj.pos.y -= dy * 0.04; // up/down with mouse Y
+    } else {
+      // XZ: move in camera-relative horizontal plane
+      const right = new THREE.Vector3();
+      const forward = new THREE.Vector3();
+      camera.getWorldDirection(forward); forward.y = 0; forward.normalize();
+      right.crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
+      obj.pos.x += right.x * dx * 0.04 + forward.x * (-dy) * 0.04;
+      obj.pos.z += right.z * dx * 0.04 + forward.z * (-dy) * 0.04;
+    }
+    obj.group.position.set(obj.pos.x, obj.pos.y, obj.pos.z);
+    updateLinks();
+    updateStats();
+    refreshRPanel();
+  }
+});
+
+canvas.addEventListener('wheel', e => {
+  orb.r = Math.max(3, Math.min(80, orb.r + e.deltaY * 0.05));
+  applyOrbit();
+  e.preventDefault();
+}, { passive: false });
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// ═══════════════════════════════════════════════════════════
+// RAYCASTING HELPERS
+// ═══════════════════════════════════════════════════════════
+const rc = new THREE.Raycaster();
+
+function screenToMouse(e) {
+  const r = canvas.getBoundingClientRect();
+  mouse.x =  ((e.clientX - r.left) / r.width)  * 2 - 1;
+  mouse.y = -((e.clientY - r.top)  / r.height) * 2 + 1;
+}
+
+// Returns the world position where the mouse ray hits a horizontal plane at height Y
+function rayAtY(e, y = 0) {
+  screenToMouse(e);
+  rc.setFromCamera(mouse, camera);
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -y);
+  const target = new THREE.Vector3();
+  rc.ray.intersectPlane(plane, target);
+  return target;
+}
+
+// Returns the world position where the mouse ray hits a vertical plane facing the camera
+function rayAtX(e, x = 0) {
+  screenToMouse(e);
+  rc.setFromCamera(mouse, camera);
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir); dir.y = 0; dir.normalize();
+  const plane = new THREE.Plane(dir, -dir.dot(new THREE.Vector3(x, 0, 0)));
+  const target = new THREE.Vector3();
+  rc.ray.intersectPlane(plane, target);
+  return target;
+}
+
+// Finds which placed object was clicked
+function pickPlaced(e) {
+  screenToMouse(e);
+  rc.setFromCamera(mouse, camera);
+  const meshes = [];
+  placed.forEach(o => o.group.traverse(c => { if (c.isMesh) meshes.push(c); }));
+  const hits = rc.intersectObjects(meshes, false);
+  if (!hits.length) return null;
+  const hit = hits[0].object;
+  return placed.find(o => {
+    let found = false;
+    o.group.traverse(c => { if (c === hit) found = true; });
+    return found;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// GHOST PREVIEW — follows mouse while placing
+// ═══════════════════════════════════════════════════════════
+function makeGhost(typeId) {
+  removeGhost();
+  if (!typeId) return;
+  ghost = buildShape(typeId);
+  ghost.traverse(c => {
+    if (c.isMesh) {
+      c.material = c.material.clone();
+      c.material.transparent = true;
+      c.material.opacity = 0.45;
+    }
+  });
+  scene.add(ghost);
+}
+
+function removeGhost() {
+  if (ghost) { scene.remove(ghost); ghost = null; }
+}
+
+canvas.addEventListener('mousemove', e => {
+  if (tool !== 'place' || !ghost) return;
+  const pos = rayAtY(e, placeY);
+  if (pos) ghost.position.set(pos.x, placeY, pos.z);
+});
+
+// ═══════════════════════════════════════════════════════════
+// CLICK — place / select / delete
+// ═══════════════════════════════════════════════════════════
+canvas.addEventListener('click', e => {
+  if (e.button !== 0) return;
+
+  if (tool === 'place' && pickedType) {
+    const pos = rayAtY(e, placeY);
+    if (!pos) return;
+    placeObj(pickedType, pos.x, placeY, pos.z);
+    return;
+  }
+
+  if (tool === 'select' || tool === 'delete') {
+    const o = pickPlaced(e);
+    if (!o) { selId = null; hideAxisBar(); refreshRPanel(); unhighlightAll(); return; }
+    if (tool === 'delete') { deleteObj(o.id); return; }
+    selId = o.id;
+    showAxisBar();
+    refreshRPanel();
+    highlightObj(o);
+    return;
+  }
+});
+
+// Mousedown for drag-to-move
+canvas.addEventListener('mousedown', e => {
+  if (e.button !== 0 || tool !== 'select') return;
+  const o = pickPlaced(e);
+  if (o && o.id === selId) draggingObj = o.id;
+});
+
+// ═══════════════════════════════════════════════════════════
+// PLACE OBJECT — fully free in 3D (no grid snap)
+// ═══════════════════════════════════════════════════════════
+function placeObj(typeId, x, y, z) {
+  const grp = buildShape(typeId);
+  grp.position.set(x, y, z);
+  grp.castShadow = true;
+  scene.add(grp);
+  const id = nid++;
+  placed.push({ id, type: typeId, group: grp, pos: { x, y, z } });
+  updateLinks();
+  updateStats();
+  selId = id;
+  showAxisBar();
+  highlightObj(placed[placed.length - 1]);
+  refreshRPanel();
+}
+
+function deleteObj(id) {
+  const idx = placed.findIndex(o => o.id === id);
+  if (idx < 0) return;
+  scene.remove(placed[idx].group);
+  placed.splice(idx, 1);
+  if (selId === id) { selId = null; hideAxisBar(); }
+  updateLinks();
+  updateStats();
+  refreshRPanel();
+}
+
+function clearScene() {
+  placed.forEach(o => scene.remove(o.group));
+  placed = [];
+  links.forEach(l => scene.remove(l));
+  links = [];
+  selId = null;
+  hideAxisBar();
+  updateStats();
+  refreshRPanel();
+}
+
+// ═══════════════════════════════════════════════════════════
+// HIGHLIGHT
+// ═══════════════════════════════════════════════════════════
+function unhighlightAll() {
+  placed.forEach(o => o.group.traverse(c => {
+    if (c.isMesh && c._origEmissive !== undefined) {
+      c.material.emissive.setHex(0x000000);
+      c.material.emissiveIntensity = 0;
+    }
+  }));
+}
+function highlightObj(obj) {
+  unhighlightAll();
+  obj.group.traverse(c => {
+    if (c.isMesh) {
+      c.material = c.material.clone();
+      c._origEmissive = true;
+      c.material.emissive = new THREE.Color(OBJ[obj.type].color);
+      c.material.emissiveIntensity = 0.35;
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// SYMBIOTIC LINKS
+// ═══════════════════════════════════════════════════════════
+function updateLinks() {
+  links.forEach(l => scene.remove(l));
+  links = [];
+  const active = [];
+
+  for (let i = 0; i < placed.length; i++) {
+    for (let j = i + 1; j < placed.length; j++) {
+      const a = placed[i], b = placed[j];
+      const da = OBJ[a.type], db = OBJ[b.type];
+      const dx = a.pos.x - b.pos.x, dy = a.pos.y - b.pos.y, dz = a.pos.z - b.pos.z;
+      const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      if (dist > LINK_DIST) continue;
+
+      let desc = '';
+      for (const [tag, d] of (da.links || [])) {
+        if ((db.synergy || []).includes(tag)) { desc = `${da.label} ↔ ${db.label}: ${d}`; break; }
+      }
+      if (!desc) {
+        for (const [tag, d] of (db.links || [])) {
+          if ((da.synergy || []).includes(tag)) { desc = `${db.label} ↔ ${da.label}: ${d}`; break; }
+        }
+      }
+      if (!desc) continue;
+
+      const aTop = new THREE.Vector3(a.pos.x, a.pos.y + OBJ[a.type].h * 0.6, a.pos.z);
+      const bTop = new THREE.Vector3(b.pos.x, b.pos.y + OBJ[b.type].h * 0.6, b.pos.z);
+      const lg = new THREE.BufferGeometry().setFromPoints([aTop, bTop]);
+      const lm = new THREE.LineBasicMaterial({ color: 0x80ff80, linewidth: 2 });
+      const line = new THREE.Line(lg, lm);
+      scene.add(line);
+      links.push(line);
+      active.push(desc);
+    }
+  }
+
+  const el = document.getElementById('links-out');
+  el.innerHTML = active.length
+    ? active.map(d => `<div class="link-row"><div class="link-dot"></div>${d}</div>`).join('')
+    : '<span style="color:#2e4e20">Place objects near each other to unlock ecosystem connections.</span>';
+}
+
+// ═══════════════════════════════════════════════════════════
+// CITY STATS
+// ═══════════════════════════════════════════════════════════
+let cityStats = {e:0,w:0,f:0,r:0,wb:0};
+function updateStats() {
+  cityStats = {e:0,w:0,f:0,r:0,wb:0};
+  placed.forEach(o => {
+    const s = OBJ[o.type].stats;
+    cityStats.e  += s.e;
+    cityStats.w  += s.w;
+    cityStats.f  += s.f;
+    cityStats.r  += s.r;
+    cityStats.wb += s.wb;
+  });
+  const cl = v => Math.max(0, Math.min(100, v));
+  const pct = v => cl(v) + '%';
+  document.getElementById('se').textContent  = Math.max(0, cityStats.e);
+  document.getElementById('sw').textContent  = cl(cityStats.w);
+  document.getElementById('sf').textContent  = cl(cityStats.f);
+  document.getElementById('sr').textContent  = cl(cityStats.r);
+  document.getElementById('swb').textContent = cl(cityStats.wb);
+  document.getElementById('h-e').textContent  = pct(cityStats.e);
+  document.getElementById('h-w').textContent  = pct(cityStats.w);
+  document.getElementById('h-f').textContent  = pct(cityStats.f);
+  document.getElementById('h-r').textContent  = pct(cityStats.r);
+  document.getElementById('h-wb').textContent = pct(cityStats.wb);
+  document.getElementById('hf-e').style.width  = pct(cityStats.e);
+  document.getElementById('hf-w').style.width  = pct(cityStats.w);
+  document.getElementById('hf-f').style.width  = pct(cityStats.f);
+  document.getElementById('hf-r').style.width  = pct(cityStats.r);
+  document.getElementById('hf-wb').style.width = pct(cityStats.wb);
+  const score = Math.round((cl(cityStats.e)+cl(cityStats.w)+cl(cityStats.f)+cl(cityStats.r)+cl(cityStats.wb))/5);
+  document.getElementById('esc').textContent = score;
+}
+
+// ═══════════════════════════════════════════════════════════
+// RIGHT PANEL
+// ═══════════════════════════════════════════════════════════
+function refreshRPanel() {
+  const panel = document.getElementById('rp-obj');
+  if (selId !== null) {
+    const obj = placed.find(o => o.id === selId);
+    if (obj) {
+      const d = OBJ[obj.type];
+      const s = d.stats;
+      const sg = v => v >= 0 ? `<span class="st-val pos">+${v}</span>` : `<span class="st-val neg">${v}</span>`;
+      panel.innerHTML = `
+        <div class="rp-title">Selected Object</div>
+        <div class="obj-name">${d.label}</div>
+        <div class="obj-desc">${d.desc}</div>
+        <div class="st-row"><span>⚡ Energy</span>${sg(s.e)}</div>
+        <div class="st-row"><span>💧 Water</span>${sg(s.w)}</div>
+        <div class="st-row"><span>🌾 Food</span>${sg(s.f)}</div>
+        <div class="st-row"><span>♻️ Recycle</span>${sg(s.r)}</div>
+        <div class="st-row"><span>😊 Wellbeing</span>${sg(s.wb)}</div>
+        <div style="margin-top:10px">
+          <div class="rp-title" style="margin-bottom:4px">Position (drag to move)</div>
+          <div class="pos-row">
+            <div class="pos-label"><span>X</span><b id="px">${obj.pos.x.toFixed(1)}</b></div>
+            <input type="range" min="-25" max="25" step="0.5" value="${obj.pos.x}" oninput="moveAxis('x',+this.value)">
+          </div>
+          <div class="pos-row">
+            <div class="pos-label"><span>Y Height</span><b id="py">${obj.pos.y.toFixed(1)}</b></div>
+            <input type="range" min="-2" max="20" step="0.5" value="${obj.pos.y}" oninput="moveAxis('y',+this.value)">
+          </div>
+          <div class="pos-row">
+            <div class="pos-label"><span>Z</span><b id="pz">${obj.pos.z.toFixed(1)}</b></div>
+            <input type="range" min="-25" max="25" step="0.5" value="${obj.pos.z}" oninput="moveAxis('z',+this.value)">
+          </div>
+        </div>
+        <button class="del-btn" onclick="deleteObj(${obj.id})">✕ Remove</button>
+      `;
+      return;
+    }
+  }
+  if (pickedType) {
+    const d = OBJ[pickedType];
+    panel.innerHTML = `
+      <div class="rp-title">Placing</div>
+      <div class="obj-name">${d.label}</div>
+      <div class="obj-desc">${d.desc}</div>
+      <div style="margin-top:8px">
+        <div class="rp-title" style="margin-bottom:4px">Place Height (Y)</div>
+        <input type="range" min="-2" max="20" step="0.5" value="${placeY}" oninput="placeY=+this.value;this.previousElementSibling.querySelector('b').textContent=this.value" style="width:100%;accent-color:#60c040">
+        <div style="font-size:9px;color:#3a6028;margin-top:4px">Y = <b>${placeY}</b> — raise this to float objects at any height</div>
+      </div>
+      <div style="font-size:10px;color:#3a6028;margin-top:10px">Click anywhere in the 3D viewport to place this object.</div>
+    `;
+    return;
+  }
+  panel.innerHTML = `
+    <div class="rp-title">Object</div>
+    <div class="rp-empty">← Pick an object from the sidebar.<br><br>
+    Click anywhere in the 3D space to place it — not just on the ground.<br><br>
+    After placing, use Select mode + drag, or use the X/Y/Z sliders to position freely in space.</div>
+  `;
+}
+
+// Move selected object along one axis (via slider)
+function moveAxis(axis, val) {
+  const obj = placed.find(o => o.id === selId);
+  if (!obj) return;
+  obj.pos[axis] = val;
+  obj.group.position[axis] = val;
+  const el = document.getElementById('p' + axis);
+  if (el) el.textContent = val.toFixed(1);
+  updateLinks();
+  updateStats();
+}
+
+// ═══════════════════════════════════════════════════════════
+// UI CONTROLS
+// ═══════════════════════════════════════════════════════════
+function pick(typeId) {
+  pickedType = typeId;
+  selId = null;
+  unhighlightAll();
+  document.querySelectorAll('.obj-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[data-id="${typeId}"]`)?.classList.add('active');
+  setTool('place');
+  makeGhost(typeId);
+  document.getElementById('mode-badge').textContent = `✦ Placing: ${OBJ[typeId].label} — click viewport`;
+  refreshRPanel();
+}
+
+function setTool(t) {
+  tool = t;
+  document.querySelectorAll('.tbtn').forEach(b => b.classList.remove('on'));
+  document.getElementById('tb-' + t)?.classList.add('on');
+  if (t !== 'place') {
+    removeGhost();
+    document.getElementById('mode-badge').textContent = t === 'select'
+      ? '⊹ Select mode — click object to select, drag to move'
+      : '✕ Delete mode — click any object to remove';
+  }
+  if (t !== 'select') { selId = null; unhighlightAll(); hideAxisBar(); }
+}
+
+function setAxis(a) {
+  dragAxis = a;
+  ['xz','y','free'].forEach(x => document.getElementById('ax-'+x)?.classList.remove('on'));
+  document.getElementById('ax-'+a)?.classList.add('on');
+}
+
+function showAxisBar() { document.getElementById('axis-bar').classList.add('show'); }
+function hideAxisBar() { document.getElementById('axis-bar').classList.remove('show'); }
+
+function toggleCat(el) {
+  el.nextElementSibling.classList.toggle('hidden');
+}
+
+function setView(mode, el) {
+  document.querySelectorAll('.vpill').forEach(p => p.classList.remove('on'));
+  el.classList.add('on');
+  if (mode === 'top') {
+    orb.phi = 0.02; orb.r = 35;
+  } else if (mode === 'iso') {
+    orb.theta = Math.PI * 0.25; orb.phi = 0.6; orb.r = 38;
+  } else {
+    orb.theta = 0.75; orb.phi = 0.85; orb.r = 30;
+  }
+  applyOrbit();
+}
+
+// ═══════════════════════════════════════════════════════════
+// RESIZE
+// ═══════════════════════════════════════════════════════════
+function resize() {
+  const w = vp.clientWidth, h = vp.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ═══════════════════════════════════════════════════════════
+// ANIMATION LOOP
+// ═══════════════════════════════════════════════════════════
+let t = 0;
+function loop() {
+  requestAnimationFrame(loop);
+  t += 0.016;
+
+  // Pulse symbiosis links
+  links.forEach((l, i) => {
+    const p = 0.5 + 0.5 * Math.sin(t * 1.8 + i * 0.9);
+    l.material.color.setHSL(0.33, 1, 0.25 + 0.25 * p);
+  });
+
+  // Spin turbine blades
+  placed.forEach(o => {
+    if (o.type === 'wind_turbine') {
+      o.group.children.slice(2).forEach(b => {
+        b.position.x = Math.sin(t * 2 + o.group.children.indexOf(b) * 2.09) * OBJ.wind_turbine.h * 0.22;
+        b.position.y = OBJ.wind_turbine.h + Math.cos(t * 2 + o.group.children.indexOf(b) * 2.09) * OBJ.wind_turbine.h * 0.22;
+      });
+    }
+  });
+
+  // Bob the ghost
+  if (ghost) ghost.position.y = placeY + 0.08 * Math.sin(t * 3);
+
+  renderer.render(scene, camera);
+}
+loop();
+</script>
+</body>
+</html>
